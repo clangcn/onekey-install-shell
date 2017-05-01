@@ -8,10 +8,10 @@ export PATH
 #   Intro:  http://koolshare.cn/forum-72-1.html
 #===============================================================================================
 program_name="frps"
-version="1.3"
+version="1.4"
 str_program_dir="/usr/local/${program_name}"
-program_releases="https://api.github.com/repos/fatedier/frp/releases"
-program_api_filename="/tmp/${program_name}_api_file.txt"
+program_download_url="https://code.aliyun.com/clangcn/frp/raw/master"
+program_version="0.9.3"
 program_init="/etc/init.d/${program_name}"
 program_config_file="frps.ini"
 program_init_download_url=https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/frps.init
@@ -139,6 +139,25 @@ disable_selinux(){
         setenforce 0
     fi
 }
+pre_install_packs(){
+    local wget_flag=''
+    local killall_flag=''
+    local netstat_flag=''
+    wget --version > /dev/null 2>&1
+    wget_flag=$?
+    killall -V >/dev/null 2>&1
+    killall_flag=$?
+    netstat --version >/dev/null 2>&1
+    netstat_flag=$?
+    if [[ ${wget_flag} -gt 1 ]] || [[ ${killall_flag} -gt 1 ]] || [[ ${netstat_flag} -gt 6 ]];then
+        echo -e "${COLOR_GREEN} Install support packs...${COLOR_END}"
+        if [ "${OS}" == 'CentOS' ]; then
+            yum install -y wget psmisc net-tools
+        else
+            apt-get -y update && apt-get -y install wget psmisc net-tools
+        fi
+    fi
+}
 # Random password
 fun_randstr(){
     strNum=$1
@@ -147,54 +166,27 @@ fun_randstr(){
     strRandomPass=`tr -cd '[:alnum:]' < /dev/urandom | fold -w ${strNum} | head -n1`
     echo ${strRandomPass}
 }
-# ====== check packs ======
-check_net-tools(){
-    netstat -V >/dev/null 2>&1
-    if [[ $? -gt 6 ]] ;then
-        echo " Run net-tools failed"
-        if [ "${OS}" == 'CentOS' ]; then
-            echo " Install centos net-tools ..."
-            yum -y install net-tools
-        else
-            echo " Install debian/ubuntu net-tools ..."
-            apt-get update -y
-            apt-get install -y net-tools
-        fi
-    fi
-    echo $result
-}
 fun_getVer(){
-    program_version=""
-    program_latest_filename=""
     echo -e "Loading network version for ${program_name}, please wait..."
-    rm -f ${program_api_filename}
-    wget --no-check-certificate -qO- ${program_releases} > ${program_api_filename}
-    if [ -s ${program_api_filename} ]; then
-        program_version=`cat ${program_api_filename} | grep \"tag_name\" | cut -d\" -f4 | head -n 1`
-        program_latest_filename=`cat ${program_api_filename} | grep \"name\" | grep frp_${program_version:1}_linux_${ARCHS} | cut -d\" -f4 | head -n 1`
-        program_latest_file_url=`cat ${program_api_filename} | grep \"browser_download_url\" | grep ${program_version}/frp_${program_version:1}_linux_${ARCHS} | cut -d\" -f4`
-        if [ -z "${program_latest_file_url}" ]; then
-            echo -e "${COLOR_RED}Load network version failed!!!${COLOR_END}"
-        else
-            echo -e "${program_name} Latest release file ${COLOR_GREEN}${program_latest_filename}${COLOR_END}"
-        fi
+    program_latest_filename="frp_${program_version}_linux_${ARCHS}.tar.gz"
+    program_latest_file_url="${program_download_url}/${program_version}/${program_latest_filename}"
+    if [ -z "${program_latest_filename}" ]; then
+        echo -e "${COLOR_RED}Load network version failed!!!${COLOR_END}"
     else
-        echo -e "${COLOR_RED}Load ${program_name} release file failed!!!${COLOR_END}"
-        exit 1
+        echo -e "${program_name} Latest release file ${COLOR_GREEN}${program_latest_filename}${COLOR_END}"
     fi
-    rm -f ${program_api_filename}
 }
 fun_download_file(){
     # download
     if [ ! -s ${str_program_dir}/${program_name} ]; then
-        rm -fr ${program_latest_filename} frp_${program_version:1}_linux_${ARCHS}
+        rm -fr ${program_latest_filename} frp_${program_version}_linux_${ARCHS}
         if ! wget --no-check-certificate -q ${program_latest_file_url} -O ${program_latest_filename}; then
             echo -e " ${COLOR_RED}failed${COLOR_END}"
             exit 1
         fi
         tar xzf ${program_latest_filename}
-        mv frp_${program_version:1}_linux_${ARCHS}/frps ${str_program_dir}/${program_name}
-        rm -fr ${program_latest_filename} frp_${program_version:1}_linux_${ARCHS}
+        mv frp_${program_version}_linux_${ARCHS}/frps ${str_program_dir}/${program_name}
+        rm -fr ${program_latest_filename} frp_${program_version}_linux_${ARCHS}
     fi
     chown root:root -R ${str_program_dir}
     if [ -s ${str_program_dir}/${program_name} ]; then
@@ -295,14 +287,10 @@ fun_input_max_pool_count(){
 pre_install_clang(){
     fun_clangcn
     echo -e "Check your server setting, please wait..."
-    checkos
-    check_centosversion
-    check_os_bit
     disable_selinux
     if [ -s ${str_program_dir}/${program_name} ] && [ -s ${program_init} ]; then
         echo "${program_name} is installed!"
     else
-        check_net-tools
         clear
         fun_clangcn
         fun_getVer
@@ -653,6 +641,10 @@ clear
 strPath=`pwd`
 rootness
 fun_set_text_color
+checkos
+check_centosversion
+check_os_bit
+pre_install_packs
 shell_update
 # Initialization
 action=$1
