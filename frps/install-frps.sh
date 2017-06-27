@@ -8,10 +8,11 @@ export PATH
 #   Intro:  http://koolshare.cn/forum-72-1.html
 #===============================================================================================
 program_name="frps"
-version="1.4"
+version="1.5"
 str_program_dir="/usr/local/${program_name}"
-program_download_url="https://code.aliyun.com/clangcn/frp/raw/master"
-program_version="0.9.3"
+aliyun_download_url="https://code.aliyun.com/clangcn/frp/raw/master"
+github_download_url="https://github.com/fatedier/frp/releases/download"
+program_version="0.12.0"
 program_init="/etc/init.d/${program_name}"
 program_config_file="frps.ini"
 program_init_download_url=https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/frps.init
@@ -166,10 +167,36 @@ fun_randstr(){
     strRandomPass=`tr -cd '[:alnum:]' < /dev/urandom | fold -w ${strNum} | head -n1`
     echo ${strRandomPass}
 }
+fun_getServer(){
+    def_server_url="aliyun"
+    echo ""
+    echo -e "Please select ${program_name} download url:"
+    echo -e "[1].aliyun (default)"
+    echo -e "[2].github"
+    read -p "Enter your choice (1, 2 or exit. default [${def_server_url}]): " set_server_url
+    [ -z "${set_server_url}" ] && set_server_url="${def_server_url}"
+    case "${set_server_url}" in
+        1|[Aa][Ll][Ii][Yy][Uu][Nn])
+            program_download_url=${aliyun_download_url}
+            ;;
+        2|[Gg][Ii][Tt][Hh][Uu][Bb])
+            program_download_url=${github_download_url}
+            ;;
+        [eE][xX][iI][tT])
+            exit 1
+            ;;
+        *)
+            program_download_url=${aliyun_download_url}
+            ;;
+    esac
+    echo "---------------------------------------"
+    echo "Your select: ${set_server_url}"
+    echo "---------------------------------------"
+}
 fun_getVer(){
     echo -e "Loading network version for ${program_name}, please wait..."
     program_latest_filename="frp_${program_version}_linux_${ARCHS}.tar.gz"
-    program_latest_file_url="${program_download_url}/${program_version}/${program_latest_filename}"
+    program_latest_file_url="${program_download_url}/v${program_version}/${program_latest_filename}"
     if [ -z "${program_latest_filename}" ]; then
         echo -e "${COLOR_RED}Load network version failed!!!${COLOR_END}"
     else
@@ -195,6 +222,11 @@ fun_download_file(){
         echo -e " ${COLOR_RED}failed${COLOR_END}"
         exit 1
     fi
+}
+function __readINI() {
+ INIFILE=$1; SECTION=$2; ITEM=$3
+ _readIni=`awk -F '=' '/\['$SECTION'\]/{a=1}a==1&&$1~/'$ITEM'/{print $2;exit}' $INIFILE`
+echo ${_readIni}
 }
 # Check port
 fun_check_port(){
@@ -293,6 +325,7 @@ pre_install_clang(){
     else
         clear
         fun_clangcn
+        fun_getServer
         fun_getVer
         echo -e "Loading You Server IP, please wait..."
         defIP=$(wget -qO- ip.clang.cn | sed -r 's/\r//')
@@ -334,7 +367,7 @@ pre_install_clang(){
         echo "${program_name} max_pool_count: ${set_max_pool_count}"
         echo ""
         echo "##### Please select log_level #####"
-        echo "1: info"
+        echo "1: info (default)"
         echo "2: warn"
         echo "3: error"
         echo "4: debug"
@@ -367,7 +400,7 @@ pre_install_clang(){
         echo "${program_name} log_max_days: ${set_log_max_days}"
         echo ""
         echo "##### Please select log_file #####"
-        echo "1: enable"
+        echo "1: enable (default)"
         echo "2: disable"
         echo "#####################################################"
         read -p "Enter your choice (1, 2 or exit. default [1]): " str_log_file
@@ -390,15 +423,59 @@ pre_install_clang(){
         esac
         echo "log_file: ${str_log_file_flag}"
         echo ""
+        echo "##### Please select tcp_mux #####"
+        echo "1: enable (default)"
+        echo "2: disable"
+        echo "#####################################################"
+        read -p "Enter your choice (1, 2 or exit. default [1]): " str_tcp_mux
+        case "${str_tcp_mux}" in
+            1|[yY]|[yY][eE][sS]|[oO][nN]|[tT][rR][uU][eE]|[eE][nN][aA][bB][lL][eE])
+                set_tcp_mux="true"
+                ;;
+            0|2|[nN]|[nN][oO]|[oO][fF][fF]|[fF][aA][lL][sS][eE]|[dD][iI][sS][aA][bB][lL][eE])
+                set_tcp_mux="false"
+                ;;
+            [eE][xX][iI][tT])
+                exit 1
+                ;;
+            *)
+                set_tcp_mux="true"
+                ;;
+        esac
+        echo "tcp_mux: ${set_tcp_mux}"
+        echo ""
+        echo "##### Please select kcp support #####"
+        echo "1: enable (default)"
+        echo "2: disable"
+        echo "#####################################################"
+        read -p "Enter your choice (1, 2 or exit. default [1]): " str_kcp
+        case "${str_kcp}" in
+            1|[yY]|[yY][eE][sS]|[oO][nN]|[tT][rR][uU][eE]|[eE][nN][aA][bB][lL][eE])
+                set_kcp="true"
+                ;;
+            0|2|[nN]|[nN][oO]|[oO][fF][fF]|[fF][aA][lL][sS][eE]|[dD][iI][sS][aA][bB][lL][eE])
+                set_kcp="false"
+                ;;
+            [eE][xX][iI][tT])
+                exit 1
+                ;;
+            *)
+                set_kcp="true"
+                ;;
+        esac
+        echo "kcp support: ${set_kcp}"
+        echo ""
         echo "============== Check your input =============="
         echo -e "You Server IP      : ${COLOR_GREEN}${defIP}${COLOR_END}"
         echo -e "Bind port          : ${COLOR_GREEN}${set_bind_port}${COLOR_END}"
+        echo -e "kcp support        : ${COLOR_GREEN}${set_kcp}${COLOR_END}"
         echo -e "vhost http port    : ${COLOR_GREEN}${set_vhost_http_port}${COLOR_END}"
         echo -e "vhost https port   : ${COLOR_GREEN}${set_vhost_https_port}${COLOR_END}"
         echo -e "Dashboard port     : ${COLOR_GREEN}${set_dashboard_port}${COLOR_END}"
         echo -e "Dashboard user     : ${COLOR_GREEN}${set_dashboard_user}${COLOR_END}"
         echo -e "Dashboard password : ${COLOR_GREEN}${set_dashboard_pwd}${COLOR_END}"
         echo -e "Privilege token    : ${COLOR_GREEN}${set_privilege_token}${COLOR_END}"
+        echo -e "tcp_mux            : ${COLOR_GREEN}${set_tcp_mux}${COLOR_END}"
         echo -e "Max Pool count     : ${COLOR_GREEN}${set_max_pool_count}${COLOR_END}"
         echo -e "Log level          : ${COLOR_GREEN}${str_log_level}${COLOR_END}"
         echo -e "Log max days       : ${COLOR_GREEN}${set_log_max_days}${COLOR_END}"
@@ -419,6 +496,7 @@ install_program_server_clang(){
 
     echo -n "config file for ${program_name} ..."
 # Config file
+if [[ "${set_kcp}" == "false" ]]; then 
 cat > ${str_program_dir}/${program_config_file}<<-EOF
 # [common] is integral section
 [common]
@@ -426,6 +504,9 @@ cat > ${str_program_dir}/${program_config_file}<<-EOF
 # in square brackets, as in "[::1]:80", "[ipv6-host]:http" or "[ipv6-host%zone]:80"
 bind_addr = 0.0.0.0
 bind_port = ${set_bind_port}
+# udp port used for kcp protocol, it can be same with 'bind_port'
+# if not set, kcp is disabled in frps
+#kcp_bind_port = ${set_bind_port}
 # if you want to configure or reload frps by dashboard, dashboard_port must be set
 dashboard_port = ${set_dashboard_port}
 # dashboard assets directory(only for debug mode)
@@ -440,15 +521,52 @@ log_file = ${str_log_file}
 # debug, info, warn, error
 log_level = ${str_log_level}
 log_max_days = ${set_log_max_days}
-# if you enable privilege mode, frpc can create a proxy without pre-configure in frps when privilege_token is correct
-privilege_mode = true
+# privilege mode is the only supported mode since v0.10.0
 privilege_token = ${set_privilege_token}
 # only allow frpc to bind ports you list, if you set nothing, there won't be any limit
 #privilege_allow_ports = 1-65535
 # pool_count in each proxy will change to max_pool_count if they exceed the maximum value
 max_pool_count = ${set_max_pool_count}
+# if tcp stream multiplexing is used, default is true
+tcp_mux = ${set_tcp_mux}
 
 EOF
+else
+cat > ${str_program_dir}/${program_config_file}<<-EOF
+# [common] is integral section
+[common]
+# A literal address or host name for IPv6 must be enclosed
+# in square brackets, as in "[::1]:80", "[ipv6-host]:http" or "[ipv6-host%zone]:80"
+bind_addr = 0.0.0.0
+bind_port = ${set_bind_port}
+# udp port used for kcp protocol, it can be same with 'bind_port'
+# if not set, kcp is disabled in frps
+kcp_bind_port = ${set_bind_port}
+# if you want to configure or reload frps by dashboard, dashboard_port must be set
+dashboard_port = ${set_dashboard_port}
+# dashboard assets directory(only for debug mode)
+dashboard_user = ${set_dashboard_user}
+dashboard_pwd = ${set_dashboard_pwd}
+# assets_dir = ./static
+
+vhost_http_port = ${set_vhost_http_port}
+vhost_https_port = ${set_vhost_https_port}
+# console or real logFile path like ./frps.log
+log_file = ${str_log_file}
+# debug, info, warn, error
+log_level = ${str_log_level}
+log_max_days = ${set_log_max_days}
+# privilege mode is the only supported mode since v0.10.0
+privilege_token = ${set_privilege_token}
+# only allow frpc to bind ports you list, if you set nothing, there won't be any limit
+#privilege_allow_ports = 1-65535
+# pool_count in each proxy will change to max_pool_count if they exceed the maximum value
+max_pool_count = ${set_max_pool_count}
+# if tcp stream multiplexing is used, default is true
+tcp_mux = ${set_tcp_mux}
+
+EOF
+fi
     echo " done"
 
     echo -n "download ${program_name} ..."
@@ -484,10 +602,12 @@ EOF
     echo "=============================================="
     echo -e "You Server IP      : ${COLOR_GREEN}${defIP}${COLOR_END}"
     echo -e "Bind port          : ${COLOR_GREEN}${set_bind_port}${COLOR_END}"
+    echo -e "KCP support        : ${COLOR_GREEN}${set_kcp}${COLOR_END}"
     echo -e "vhost http port    : ${COLOR_GREEN}${set_vhost_http_port}${COLOR_END}"
     echo -e "vhost https port   : ${COLOR_GREEN}${set_vhost_https_port}${COLOR_END}"
     echo -e "Dashboard port     : ${COLOR_GREEN}${set_dashboard_port}${COLOR_END}"
     echo -e "Privilege token    : ${COLOR_GREEN}${set_privilege_token}${COLOR_END}"
+    echo -e "tcp_mux            : ${COLOR_GREEN}${set_tcp_mux}${COLOR_END}"
     echo -e "Max Pool count     : ${COLOR_GREEN}${set_max_pool_count}${COLOR_END}"
     echo -e "Log level          : ${COLOR_GREEN}${str_log_level}${COLOR_END}"
     echo -e "Log max days       : ${COLOR_GREEN}${set_log_max_days}${COLOR_END}"
@@ -559,27 +679,85 @@ update_config_clang(){
     else
         search_dashboard_user=`grep "dashboard_user" ${str_program_dir}/${program_config_file}`
         search_dashboard_pwd=`grep "dashboard_pwd" ${str_program_dir}/${program_config_file}`
-        if [ -z "${search_dashboard_user}" ] && [ -z "${search_dashboard_pwd}" ];then
+        search_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
+        search_tcp_mux=`grep "tcp_mux" ${str_program_dir}/${program_config_file}`
+        if [ -z "${search_dashboard_user}" ] || [ -z "${search_dashboard_pwd}" ] || [ -z "${search_kcp_bind_port}" ] || [ -z "${search_tcp_mux}" ];then
             echo -e "${COLOR_GREEN}Configuration files need to be updated, now setting:${COLOR_END}"
             echo ""
-            def_dashboard_user_update="admin"
-            read -p "Please input dashboard_user (Default: ${def_dashboard_user_update}):" set_dashboard_user_update
-            [ -z "${set_dashboard_user_update}" ] && set_dashboard_user_update="${def_dashboard_user_update}"
-            echo "${program_name} dashboard_user: ${set_dashboard_user_update}"
-            echo ""
-            def_dashboard_pwd_update=`fun_randstr 8`
-            read -p "Please input dashboard_pwd (Default: ${def_dashboard_pwd_update}):" set_dashboard_pwd_update
-            [ -z "${set_dashboard_pwd_update}" ] && set_dashboard_pwd_update="${def_dashboard_pwd_update}"
-            echo "${program_name} dashboard_pwd: ${set_dashboard_pwd_update}"
-            echo ""
-            sed -i "/dashboard_port =.*/a\dashboard_user = ${set_dashboard_user_update}\ndashboard_pwd = ${set_dashboard_pwd_update}\n" ${str_program_dir}/${program_config_file}
-            verify_dashboard_user=`grep "dashboard_user" ${str_program_dir}/${program_config_file}`
-            verify_dashboard_pwd=`grep "dashboard_pwd" ${str_program_dir}/${program_config_file}`
-            if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ];then
-                echo -e "${COLOR_GREEN}update configuration file successfully!!!${COLOR_END}"
-            else
-                echo -e "${COLOR_RED}update configuration file error!!!${COLOR_END}"
+            if [ -z "${search_dashboard_user}" ] && [ -z "${search_dashboard_pwd}" ];then
+                def_dashboard_user_update="admin"
+                read -p "Please input dashboard_user (Default: ${def_dashboard_user_update}):" set_dashboard_user_update
+                [ -z "${set_dashboard_user_update}" ] && set_dashboard_user_update="${def_dashboard_user_update}"
+                echo "${program_name} dashboard_user: ${set_dashboard_user_update}"
+                echo ""
+                def_dashboard_pwd_update=`fun_randstr 8`
+                read -p "Please input dashboard_pwd (Default: ${def_dashboard_pwd_update}):" set_dashboard_pwd_update
+                [ -z "${set_dashboard_pwd_update}" ] && set_dashboard_pwd_update="${def_dashboard_pwd_update}"
+                echo "${program_name} dashboard_pwd: ${set_dashboard_pwd_update}"
+                echo ""
+                sed -i "/dashboard_port =.*/a\dashboard_user = ${set_dashboard_user_update}\ndashboard_pwd = ${set_dashboard_pwd_update}\n" ${str_program_dir}/${program_config_file}
             fi
+            if [ -z "${search_kcp_bind_port}" ];then
+                echo "##### Please select kcp support #####"
+                echo "1: enable (default)"
+                echo "2: disable"
+                echo "#####################################################"
+                read -p "Enter your choice (1, 2 or exit. default [1]): " str_kcp
+                case "${str_kcp}" in
+                    1|[yY]|[yY][eE][sS]|[oO][nN]|[tT][rR][uU][eE]|[eE][nN][aA][bB][lL][eE])
+                        set_kcp="true"
+                        ;;
+                    0|2|[nN]|[nN][oO]|[oO][fF][fF]|[fF][aA][lL][sS][eE]|[dD][iI][sS][aA][bB][lL][eE])
+                        set_kcp="false"
+                        ;;
+                    [eE][xX][iI][tT])
+                        exit 1
+                        ;;
+                    *)
+                        set_kcp="true"
+                        ;;
+                esac
+                echo "kcp support: ${set_kcp}"
+                def_kcp_bind_port=( $( __readINI ${str_program_dir}/${program_config_file} common bind_port ) )
+                if [[ "${set_kcp}" == "false" ]]; then 
+                    sed -i "/^bind_port =.*/a\# udp port used for kcp protocol, it can be same with 'bind_port'\n# if not set, kcp is disabled in frps\n#kcp_bind_port = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
+                else
+                    sed -i "/^bind_port =.*/a\# udp port used for kcp protocol, it can be same with 'bind_port'\n# if not set, kcp is disabled in frps\nkcp_bind_port = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
+                fi
+            fi
+            if [ -z "${search_tcp_mux}" ];then
+                echo "##### Please select tcp_mux #####"
+                echo "1: enable (default)"
+                echo "2: disable"
+                echo "#####################################################"
+                read -p "Enter your choice (1, 2 or exit. default [1]): " str_tcp_mux
+                case "${str_tcp_mux}" in
+                    1|[yY]|[yY][eE][sS]|[oO][nN]|[tT][rR][uU][eE]|[eE][nN][aA][bB][lL][eE])
+                        set_tcp_mux="true"
+                        ;;
+                    0|2|[nN]|[nN][oO]|[oO][fF][fF]|[fF][aA][lL][sS][eE]|[dD][iI][sS][aA][bB][lL][eE])
+                        set_tcp_mux="false"
+                        ;;
+                    [eE][xX][iI][tT])
+                        exit 1
+                        ;;
+                    *)
+                        set_tcp_mux="true"
+                        ;;
+                esac
+                echo "tcp_mux: ${set_tcp_mux}"
+                sed -i "/^privilege_mode = true/d" ${str_program_dir}/${program_config_file}
+                sed -i "/^privilege_token =.*/a\# if tcp stream multiplexing is used, default is true\ntcp_mux = ${set_tcp_mux}\n" ${str_program_dir}/${program_config_file}
+            fi
+        fi
+        verify_dashboard_user=`grep "^dashboard_user" ${str_program_dir}/${program_config_file}`
+        verify_dashboard_pwd=`grep "^dashboard_pwd" ${str_program_dir}/${program_config_file}`
+        verify_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
+        verify_tcp_mux=`grep "^tcp_mux" ${str_program_dir}/${program_config_file}`
+        if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ] && [ ! -z "${verify_kcp_bind_port}" ] && [ ! -z "${verify_tcp_mux}" ];then
+            echo -e "${COLOR_GREEN}update configuration file successfully!!!${COLOR_END}"
+        else
+            echo -e "${COLOR_RED}update configuration file error!!!${COLOR_END}"
         fi
     fi
 }
@@ -607,11 +785,12 @@ update_program_server_clang(){
         fi
         [ ! -d ${str_program_dir} ] && mkdir -p ${str_program_dir}
         echo -e "Loading network version for ${program_name}, please wait..."
+        fun_getServer
         fun_getVer >/dev/null 2>&1
         local_program_version=`${str_program_dir}/${program_name} --version`
         echo -e "${COLOR_GREEN}${program_name}  local version ${local_program_version}${COLOR_END}"
-        echo -e "${COLOR_GREEN}${program_name} remote version ${program_version:1}${COLOR_END}"
-        if [[ "${local_program_version}" != "${program_version:1}" ]];then
+        echo -e "${COLOR_GREEN}${program_name} remote version ${program_version}${COLOR_END}"
+        if [[ "${local_program_version}" != "${program_version}" ]];then
             echo -e "${COLOR_GREEN}Found a new version,update now!!!${COLOR_END}"
             ${program_init} stop
             sleep 1
