@@ -8,11 +8,11 @@ export PATH
 #   Intro:  http://koolshare.cn/forum-72-1.html
 #===============================================================================================
 program_name="frps"
-version="1.5"
+version="1.6"
 str_program_dir="/usr/local/${program_name}"
 aliyun_download_url="https://code.aliyun.com/clangcn/frp/raw/master"
 github_download_url="https://github.com/fatedier/frp/releases/download"
-program_version="0.12.0"
+program_version="0.13.0"
 program_init="/etc/init.d/${program_name}"
 program_config_file="frps.ini"
 program_init_download_url=https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/frps.init
