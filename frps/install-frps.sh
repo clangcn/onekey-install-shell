@@ -8,14 +8,12 @@ export PATH
 #   Intro:  http://koolshare.cn/forum-72-1.html
 #===============================================================================================
 program_name="frps"
-version="1.8.3"
+version="1.8.4"
 str_program_dir="/usr/local/${program_name}"
-aliyun_download_url="https://code.aliyun.com/clangcn/frp/raw/master"
-github_download_url="https://github.com/fatedier/frp/releases/download"
-program_version="0.16.1"
 program_init="/etc/init.d/${program_name}"
 program_config_file="frps.ini"
-program_init_download_url=https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/frps.init
+ver_file="/tmp/.frp_ver.sh"
+program_version_link="https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/version.sh"
 str_install_shell=https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/install-frps.sh
 shell_update(){
     fun_clangcn "clear"
@@ -167,6 +165,20 @@ fun_randstr(){
     strRandomPass=`tr -cd '[:alnum:]' < /dev/urandom | fold -w ${strNum} | head -n1`
     echo ${strRandomPass}
 }
+fun_get_version(){
+    rm -f ${ver_file}
+    if ! wget --no-check-certificate -qO ${ver_file} ${program_version_link}; then
+        echo -e "${COLOR_RED}Failed to download version.sh${COLOR_END}"
+    fi
+    if [ -s ${ver_file} ]; then
+        [ -x ${ver_file} ] && chmod +x ${ver_file}
+        . ${ver_file}
+    fi
+    if [ -z ${FRPS_VER} ] || [ -z ${FRPS_INIT} ] || [ -z ${aliyun_download_url} ] || [ -z ${github_download_url} ]; then
+        echo -e "${COLOR_RED}Error: ${COLOR_END}Get Program version failed!"
+        exit 1
+    fi
+}
 fun_getServer(){
     def_server_url="aliyun"
     echo ""
@@ -195,8 +207,8 @@ fun_getServer(){
 }
 fun_getVer(){
     echo -e "Loading network version for ${program_name}, please wait..."
-    program_latest_filename="frp_${program_version}_linux_${ARCHS}.tar.gz"
-    program_latest_file_url="${program_download_url}/v${program_version}/${program_latest_filename}"
+    program_latest_filename="frp_${FRPS_VER}_linux_${ARCHS}.tar.gz"
+    program_latest_file_url="${program_download_url}/v${FRPS_VER}/${program_latest_filename}"
     if [ -z "${program_latest_filename}" ]; then
         echo -e "${COLOR_RED}Load network version failed!!!${COLOR_END}"
     else
@@ -206,14 +218,14 @@ fun_getVer(){
 fun_download_file(){
     # download
     if [ ! -s ${str_program_dir}/${program_name} ]; then
-        rm -fr ${program_latest_filename} frp_${program_version}_linux_${ARCHS}
+        rm -fr ${program_latest_filename} frp_${FRPS_VER}_linux_${ARCHS}
         if ! wget --no-check-certificate -q ${program_latest_file_url} -O ${program_latest_filename}; then
             echo -e " ${COLOR_RED}failed${COLOR_END}"
             exit 1
         fi
         tar xzf ${program_latest_filename}
-        mv frp_${program_version}_linux_${ARCHS}/frps ${str_program_dir}/${program_name}
-        rm -fr ${program_latest_filename} frp_${program_version}_linux_${ARCHS}
+        mv frp_${FRPS_VER}_linux_${ARCHS}/frps ${str_program_dir}/${program_name}
+        rm -fr ${program_latest_filename} frp_${FRPS_VER}_linux_${ARCHS}
     fi
     chown root:root -R ${str_program_dir}
     if [ -s ${str_program_dir}/${program_name} ]; then
@@ -325,6 +337,7 @@ pre_install_clang(){
     else
         clear
         fun_clangcn
+        fun_get_version
         fun_getServer
         fun_getVer
         echo -e "Loading You Server IP, please wait..."
@@ -496,7 +509,7 @@ install_program_server_clang(){
 
     echo -n "config file for ${program_name} ..."
 # Config file
-if [[ "${set_kcp}" == "false" ]]; then 
+if [[ "${set_kcp}" == "false" ]]; then
 cat > ${str_program_dir}/${program_config_file}<<-EOF
 # [common] is integral section
 [common]
@@ -513,7 +526,6 @@ dashboard_port = ${set_dashboard_port}
 dashboard_user = ${set_dashboard_user}
 dashboard_pwd = ${set_dashboard_pwd}
 # assets_dir = ./static
-
 vhost_http_port = ${set_vhost_http_port}
 vhost_https_port = ${set_vhost_https_port}
 # console or real logFile path like ./frps.log
@@ -524,12 +536,11 @@ log_max_days = ${set_log_max_days}
 # privilege mode is the only supported mode since v0.10.0
 privilege_token = ${set_privilege_token}
 # only allow frpc to bind ports you list, if you set nothing, there won't be any limit
-#privilege_allow_ports = 1-65535
+#allow_ports = 1-65535
 # pool_count in each proxy will change to max_pool_count if they exceed the maximum value
 max_pool_count = ${set_max_pool_count}
 # if tcp stream multiplexing is used, default is true
 tcp_mux = ${set_tcp_mux}
-
 EOF
 else
 cat > ${str_program_dir}/${program_config_file}<<-EOF
@@ -548,7 +559,6 @@ dashboard_port = ${set_dashboard_port}
 dashboard_user = ${set_dashboard_user}
 dashboard_pwd = ${set_dashboard_pwd}
 # assets_dir = ./static
-
 vhost_http_port = ${set_vhost_http_port}
 vhost_https_port = ${set_vhost_https_port}
 # console or real logFile path like ./frps.log
@@ -559,12 +569,11 @@ log_max_days = ${set_log_max_days}
 # privilege mode is the only supported mode since v0.10.0
 privilege_token = ${set_privilege_token}
 # only allow frpc to bind ports you list, if you set nothing, there won't be any limit
-#privilege_allow_ports = 1-65535
+#allow_ports = 1-65535
 # pool_count in each proxy will change to max_pool_count if they exceed the maximum value
 max_pool_count = ${set_max_pool_count}
 # if tcp stream multiplexing is used, default is true
 tcp_mux = ${set_tcp_mux}
-
 EOF
 fi
     echo " done"
@@ -575,7 +584,7 @@ fi
     echo " done"
     echo -n "download ${program_init}..."
     if [ ! -s ${program_init} ]; then
-        if ! wget --no-check-certificate -q ${program_init_download_url} -O ${program_init}; then
+        if ! wget --no-check-certificate -q ${FRPS_INIT} -O ${program_init}; then
             echo -e " ${COLOR_RED}failed${COLOR_END}"
             exit 1
         fi
@@ -681,7 +690,8 @@ update_config_clang(){
         search_dashboard_pwd=`grep "dashboard_pwd" ${str_program_dir}/${program_config_file}`
         search_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
         search_tcp_mux=`grep "tcp_mux" ${str_program_dir}/${program_config_file}`
-        if [ -z "${search_dashboard_user}" ] || [ -z "${search_dashboard_pwd}" ] || [ -z "${search_kcp_bind_port}" ] || [ -z "${search_tcp_mux}" ];then
+        search_allow_ports=`grep "privilege_allow_ports" ${str_program_dir}/${program_config_file}`
+        if [ -z "${search_dashboard_user}" ] || [ -z "${search_dashboard_pwd}" ] || [ -z "${search_kcp_bind_port}" ] || [ -z "${search_tcp_mux}" ] || [ ! -z "${search_allow_ports}" ];then
             echo -e "${COLOR_GREEN}Configuration files need to be updated, now setting:${COLOR_END}"
             echo ""
             if [ -z "${search_dashboard_user}" ] && [ -z "${search_dashboard_pwd}" ];then
@@ -719,7 +729,7 @@ update_config_clang(){
                 esac
                 echo "kcp support: ${set_kcp}"
                 def_kcp_bind_port=( $( __readINI ${str_program_dir}/${program_config_file} common bind_port ) )
-                if [[ "${set_kcp}" == "false" ]]; then 
+                if [[ "${set_kcp}" == "false" ]]; then
                     sed -i "/^bind_port =.*/a\# udp port used for kcp protocol, it can be same with 'bind_port'\n# if not set, kcp is disabled in frps\n#kcp_bind_port = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
                 else
                     sed -i "/^bind_port =.*/a\# udp port used for kcp protocol, it can be same with 'bind_port'\n# if not set, kcp is disabled in frps\nkcp_bind_port = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
@@ -749,12 +759,16 @@ update_config_clang(){
                 sed -i "/^privilege_mode = true/d" ${str_program_dir}/${program_config_file}
                 sed -i "/^privilege_token =.*/a\# if tcp stream multiplexing is used, default is true\ntcp_mux = ${set_tcp_mux}\n" ${str_program_dir}/${program_config_file}
             fi
+            if [ ! -z "${search_allow_ports}" ];then
+                sed -i "s/privilege_allow_ports/allow_ports/" ${str_program_dir}/${program_config_file}
+            fi
         fi
         verify_dashboard_user=`grep "^dashboard_user" ${str_program_dir}/${program_config_file}`
         verify_dashboard_pwd=`grep "^dashboard_pwd" ${str_program_dir}/${program_config_file}`
         verify_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
         verify_tcp_mux=`grep "^tcp_mux" ${str_program_dir}/${program_config_file}`
-        if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ] && [ ! -z "${verify_kcp_bind_port}" ] && [ ! -z "${verify_tcp_mux}" ];then
+        verify_allow_ports=`grep "privilege_allow_ports" ${str_program_dir}/${program_config_file}`
+        if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ] && [ ! -z "${verify_kcp_bind_port}" ] && [ ! -z "${verify_tcp_mux}" ] && [ -z "${verify_allow_ports}" ];then
             echo -e "${COLOR_GREEN}update configuration file successfully!!!${COLOR_END}"
         else
             echo -e "${COLOR_RED}update configuration file error!!!${COLOR_END}"
@@ -769,13 +783,14 @@ update_program_server_clang(){
         checkos
         check_centosversion
         check_os_bit
-        remote_init_version=`wget --no-check-certificate -qO- ${program_init_download_url} | sed -n '/'^version'/p' | cut -d\" -f2`
+        fun_get_version
+        remote_init_version=`wget --no-check-certificate -qO- ${FRPS_INIT} | sed -n '/'^version'/p' | cut -d\" -f2`
         local_init_version=`sed -n '/'^version'/p' ${program_init} | cut -d\" -f2`
         install_shell=${strPath}
         if [ ! -z ${remote_init_version} ];then
             if [[ "${local_init_version}" != "${remote_init_version}" ]];then
                 echo "========== Update ${program_name} ${program_init} =========="
-                if ! wget --no-check-certificate ${program_init_download_url} -O ${program_init}; then
+                if ! wget --no-check-certificate ${FRPS_INIT} -O ${program_init}; then
                     echo "Failed to download ${program_name}.init file!"
                     exit 1
                 else
@@ -789,8 +804,8 @@ update_program_server_clang(){
         fun_getVer >/dev/null 2>&1
         local_program_version=`${str_program_dir}/${program_name} --version`
         echo -e "${COLOR_GREEN}${program_name}  local version ${local_program_version}${COLOR_END}"
-        echo -e "${COLOR_GREEN}${program_name} remote version ${program_version}${COLOR_END}"
-        if [[ "${local_program_version}" != "${program_version}" ]];then
+        echo -e "${COLOR_GREEN}${program_name} remote version ${FRPS_VER}${COLOR_END}"
+        if [[ "${local_program_version}" != "${FRPS_VER}" ]];then
             echo -e "${COLOR_GREEN}Found a new version,update now!!!${COLOR_END}"
             ${program_init} stop
             sleep 1
