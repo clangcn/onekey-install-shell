@@ -8,7 +8,7 @@ export PATH
 #   Intro:  http://koolshare.cn/forum-72-1.html
 #===============================================================================================
 program_name="frps"
-version="1.8.4"
+version="1.8.5"
 str_program_dir="/usr/local/${program_name}"
 program_init="/etc/init.d/${program_name}"
 program_config_file="frps.ini"
@@ -370,10 +370,10 @@ pre_install_clang(){
         [ -z "${set_dashboard_pwd}" ] && set_dashboard_pwd="${def_dashboard_pwd}"
         echo "${program_name} dashboard_pwd: ${set_dashboard_pwd}"
         echo ""
-        default_privilege_token=`fun_randstr 16`
-        read -p "Please input privilege_token (Default: ${default_privilege_token}):" set_privilege_token
-        [ -z "${set_privilege_token}" ] && set_privilege_token="${default_privilege_token}"
-        echo "${program_name} privilege_token: ${set_privilege_token}"
+        default_token=`fun_randstr 16`
+        read -p "Please input token (Default: ${default_token}):" set_token
+        [ -z "${set_token}" ] && set_token="${default_token}"
+        echo "${program_name} token: ${set_token}"
         echo ""
         fun_input_max_pool_count
         [ -n "${input_number}" ] && set_max_pool_count="${input_number}"
@@ -487,7 +487,7 @@ pre_install_clang(){
         echo -e "Dashboard port     : ${COLOR_GREEN}${set_dashboard_port}${COLOR_END}"
         echo -e "Dashboard user     : ${COLOR_GREEN}${set_dashboard_user}${COLOR_END}"
         echo -e "Dashboard password : ${COLOR_GREEN}${set_dashboard_pwd}${COLOR_END}"
-        echo -e "Privilege token    : ${COLOR_GREEN}${set_privilege_token}${COLOR_END}"
+        echo -e "token              : ${COLOR_GREEN}${set_token}${COLOR_END}"
         echo -e "tcp_mux            : ${COLOR_GREEN}${set_tcp_mux}${COLOR_END}"
         echo -e "Max Pool count     : ${COLOR_GREEN}${set_max_pool_count}${COLOR_END}"
         echo -e "Log level          : ${COLOR_GREEN}${str_log_level}${COLOR_END}"
@@ -533,8 +533,8 @@ log_file = ${str_log_file}
 # debug, info, warn, error
 log_level = ${str_log_level}
 log_max_days = ${set_log_max_days}
-# privilege mode is the only supported mode since v0.10.0
-privilege_token = ${set_privilege_token}
+# auth token
+token = ${set_token}
 # only allow frpc to bind ports you list, if you set nothing, there won't be any limit
 #allow_ports = 1-65535
 # pool_count in each proxy will change to max_pool_count if they exceed the maximum value
@@ -566,8 +566,8 @@ log_file = ${str_log_file}
 # debug, info, warn, error
 log_level = ${str_log_level}
 log_max_days = ${set_log_max_days}
-# privilege mode is the only supported mode since v0.10.0
-privilege_token = ${set_privilege_token}
+# auth token
+token = ${set_token}
 # only allow frpc to bind ports you list, if you set nothing, there won't be any limit
 #allow_ports = 1-65535
 # pool_count in each proxy will change to max_pool_count if they exceed the maximum value
@@ -615,7 +615,7 @@ fi
     echo -e "vhost http port    : ${COLOR_GREEN}${set_vhost_http_port}${COLOR_END}"
     echo -e "vhost https port   : ${COLOR_GREEN}${set_vhost_https_port}${COLOR_END}"
     echo -e "Dashboard port     : ${COLOR_GREEN}${set_dashboard_port}${COLOR_END}"
-    echo -e "Privilege token    : ${COLOR_GREEN}${set_privilege_token}${COLOR_END}"
+    echo -e "token              : ${COLOR_GREEN}${set_token}${COLOR_END}"
     echo -e "tcp_mux            : ${COLOR_GREEN}${set_tcp_mux}${COLOR_END}"
     echo -e "Max Pool count     : ${COLOR_GREEN}${set_max_pool_count}${COLOR_END}"
     echo -e "Log level          : ${COLOR_GREEN}${str_log_level}${COLOR_END}"
@@ -690,10 +690,14 @@ update_config_clang(){
         search_dashboard_pwd=`grep "dashboard_pwd" ${str_program_dir}/${program_config_file}`
         search_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
         search_tcp_mux=`grep "tcp_mux" ${str_program_dir}/${program_config_file}`
+        search_token=`grep "privilege_token" ${str_program_dir}/${program_config_file}`
         search_allow_ports=`grep "privilege_allow_ports" ${str_program_dir}/${program_config_file}`
-        if [ -z "${search_dashboard_user}" ] || [ -z "${search_dashboard_pwd}" ] || [ -z "${search_kcp_bind_port}" ] || [ -z "${search_tcp_mux}" ] || [ ! -z "${search_allow_ports}" ];then
+        if [ -z "${search_dashboard_user}" ] || [ -z "${search_dashboard_pwd}" ] || [ -z "${search_kcp_bind_port}" ] || [ -z "${search_tcp_mux}" ] || [ ! -z "${search_token}" ] || [ ! -z "${search_allow_ports}" ];then
             echo -e "${COLOR_GREEN}Configuration files need to be updated, now setting:${COLOR_END}"
             echo ""
+            if [ ! -z "${search_token}" ];then
+                sed -i "s/privilege_token/token/" ${str_program_dir}/${program_config_file}
+            fi
             if [ -z "${search_dashboard_user}" ] && [ -z "${search_dashboard_pwd}" ];then
                 def_dashboard_user_update="admin"
                 read -p "Please input dashboard_user (Default: ${def_dashboard_user_update}):" set_dashboard_user_update
@@ -757,7 +761,7 @@ update_config_clang(){
                 esac
                 echo "tcp_mux: ${set_tcp_mux}"
                 sed -i "/^privilege_mode = true/d" ${str_program_dir}/${program_config_file}
-                sed -i "/^privilege_token =.*/a\# if tcp stream multiplexing is used, default is true\ntcp_mux = ${set_tcp_mux}\n" ${str_program_dir}/${program_config_file}
+                sed -i "/^token =.*/a\# if tcp stream multiplexing is used, default is true\ntcp_mux = ${set_tcp_mux}\n" ${str_program_dir}/${program_config_file}
             fi
             if [ ! -z "${search_allow_ports}" ];then
                 sed -i "s/privilege_allow_ports/allow_ports/" ${str_program_dir}/${program_config_file}
@@ -767,8 +771,9 @@ update_config_clang(){
         verify_dashboard_pwd=`grep "^dashboard_pwd" ${str_program_dir}/${program_config_file}`
         verify_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
         verify_tcp_mux=`grep "^tcp_mux" ${str_program_dir}/${program_config_file}`
+        verify_token=`grep "privilege_token" ${str_program_dir}/${program_config_file}`
         verify_allow_ports=`grep "privilege_allow_ports" ${str_program_dir}/${program_config_file}`
-        if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ] && [ ! -z "${verify_kcp_bind_port}" ] && [ ! -z "${verify_tcp_mux}" ] && [ -z "${verify_allow_ports}" ];then
+        if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ] && [ ! -z "${verify_kcp_bind_port}" ] && [ ! -z "${verify_tcp_mux}" ] && [ -z "${verify_token}" ] && [ -z "${verify_allow_ports}" ];then
             echo -e "${COLOR_GREEN}update configuration file successfully!!!${COLOR_END}"
         else
             echo -e "${COLOR_RED}update configuration file error!!!${COLOR_END}"
