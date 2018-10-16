@@ -7,7 +7,7 @@
 #   System Required:  CentOS/Debian/Ubuntu (32bit/64bit)
 #   Description:  Manager for frps, Written by Clang
 #   Author: Clang
-#   Intro:  http://koolshare.cn/thread-65379-1-1.html
+#   Intro:  https://woytu.com
 #=======================================================
 ### BEGIN INIT INFO
 # Provides:          frps
@@ -38,7 +38,7 @@ fun_clangcn()
     echo "+--------------------------------------------------+"
     echo "|        Manager for ${ProgramName}, Written by Clang        |"
     echo "+--------------------------------------------------+"
-    echo "| Intro: http://koolshare.cn/thread-65379-1-1.html |"
+    echo "| Intro: https://woytu.com 
     echo "+--------------------------------------------------+"
     echo ""
 }
